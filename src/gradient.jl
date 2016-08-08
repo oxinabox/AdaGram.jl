@@ -69,7 +69,7 @@ function in_place_update!{Tw <: Integer}(vm::VectorModel,
 		in_grad::DenseArray{Tsf, 2}, out_grad::DenseArray{Tsf}, sense_treshold::Float64)
 
 
-	return ccall((:inplace_update, "superlib"), Float32,
+	return ccall((:inplace_update, superlib), Float32,
 		(Ptr{Float32}, Ptr{Float32},
 			Int, Int, Ptr{Float64},
 			Int,
@@ -90,7 +90,7 @@ end
 
 function var_update_z!{Tw <: Integer}(vm::VectorModel,
 		x::Tw, y::Tw, z::DenseArray{Float64}, num_meanings::Int=T(vm))
-	ccall((:update_z, "superlib"), Void,
+	ccall((:update_z, superlib), Void,
 		(Ptr{Float32}, Ptr{Float32},
 			Int, Int, Ptr{Float64}, Int,
 			Ptr{Int32}, Ptr{Int8}, Int64),
@@ -149,7 +149,7 @@ function inplace_train_vectors!(vm::VectorModel, dict::Dictionary, path::Abstrac
 		close(file)
 	end
 
-	refs = Array(RemoteRef, nworkers())
+	refs = Array(Future, nworkers())
 	for i in 1:nworkers()
 		refs[i] = remotecall(i+1, do_work, i)
 	end

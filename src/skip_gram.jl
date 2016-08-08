@@ -2,7 +2,7 @@ function log_skip_gram{T1 <: Integer, T2 <: Integer}(vm::VectorModel, w::T1,
 	s::T2, v::T1)
 	code = view(vm.code, :, v)
 	path = view(vm.path, :, v)
-	return ccall((:skip_gram, "superlib"), Float32,
+	return ccall((:skip_gram, superlib), Float32,
 		(Ptr{Float32}, Ptr{Float32},
 			Int, 
 			Ptr{Int32}, Ptr{Int8}, Int),

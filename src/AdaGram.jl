@@ -128,6 +128,9 @@ function exp_normalize!(x)
 	end
 end
 
+const superlib =  Base.Libdl.find_library(Pkg.dir("AdaGram")*"/lib/superlib.so")
+superlib!="" || error("Library: superlib Not Found")
+
 include("kahan.jl")
 include("skip_gram.jl")
 include("stick_breaking.jl")
