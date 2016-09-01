@@ -20,29 +20,27 @@ function HierarchicalSoftmaxNode()
 end
 
 function softmax_path(nodes::Array{HierarchicalSoftmaxNode},
-		V::Integer, id::Integer)
-	function path()
+		vocab_len::Integer, id::Integer)
+	Task() do
 		while true
 			node = nodes[id]
 			if node.parent == 0 break; end
-			@assert node.parent > V
-			produce((Int32(node.parent - V), convert(Float64, node.branch)))
+			@assert node.parent > vocab_len
+			produce((Int32(node.parent - vocab_len), node.branch))
 			id = node.parent
 		end
 	end
-
-	return Task(path)
 end
 
 function build_huffman_tree{Tf <: Number}(freqs::Array{Tf})
-	V = length(freqs)
-	nodes = Array(HierarchicalSoftmaxNode, V)
-	for v in 1:V
+	vocab_len = length(freqs)
+	nodes = Array(HierarchicalSoftmaxNode, vocab_len)
+	for v in 1:vocab_len
 		nodes[v] = HierarchicalSoftmaxNode()
 	end
 
 	freq_ord = By(wf -> wf[2])
-	heap = heapify!([(nodes[v], freqs[v]) for v in 1:V], freq_ord)
+	heap = heapify!([(nodes[v], freqs[v]) for v in 1:vocab_len], freq_ord)
 
 	function pop_initialize!(parent::Int, branch::Bool)
 		node = heappop!(heap, freq_ord)
@@ -51,14 +49,13 @@ function build_huffman_tree{Tf <: Number}(freqs::Array{Tf})
 		return node[2]
 	end
 
-	L = V
+	id = vocab_len
 	while length(heap) > 1
-		L += 1
+		id += 1
 		node = HierarchicalSoftmaxNode()
 		push!(nodes, node)
 
-		freq = 1
-		freq = pop_initialize!(L, true) + pop_initialize!(L, false)
+		freq = pop_initialize!(id, true) + pop_initialize!(id, false)
 		heappush!(heap, (node, freq), freq_ord)
 	end
 
@@ -67,15 +64,15 @@ function build_huffman_tree{Tf <: Number}(freqs::Array{Tf})
 	return nodes
 end
 
-function convert_huffman_tree(nodes::Array{HierarchicalSoftmaxNode}, V::Integer)
-	outputs = Array(HierarchicalOutput, V)
-	for v in 1:V
+function convert_huffman_tree(nodes::Array{HierarchicalSoftmaxNode}, vocab_len::Integer)
+	outputs = Array(HierarchicalOutput, vocab_len)
+	for layer_num in 1:vocab_len
 		code = Array(Int8, 0)
 		path = Array(Int, 0)
 
-		for (n, branch) in softmax_path(nodes, V, v)
-			push!(code, round(UInt8, branch))
-			push!(path, n)
+		for (parent_id, branch) in softmax_path(nodes, vocab_len, layer_num)
+			push!(code, Int8(branch))
+			push!(path, parent_id)
 		end
 
 		outputs[v] = HierarchicalOutput(code, path)
@@ -84,4 +81,4 @@ function convert_huffman_tree(nodes::Array{HierarchicalSoftmaxNode}, V::Integer)
 	return outputs
 end
 
-export HierarchicalSoftmaxNode, softmax_path
+export HierarchicalSoftmaxNode
