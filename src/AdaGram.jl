@@ -82,26 +82,18 @@ function VectorModel(max_length::Int64, V::Int64, M::Int64, T::Int64=1, alpha::F
 	return VectorModel(frequencies, code, path, In, Out, alpha, d, counts)
 end
 
-function VectorModel(freqs::Array{Int64}, M::Int64, T::Int64=1, alpha::Float64=1e-2,
-	d::Float64=0.)
-	V = length(freqs)
 
+function get_huffman(freqs)
+	V=length(freqs)
 	nodes = build_huffman_tree(freqs)
 	outputs = convert_huffman_tree(nodes, V)
+end
 
-	max_length = maximum(map(x -> length(x.code), outputs))
 
-	path = shared_zeros(Int32, (max_length, V))
-	code = shared_zeros(Int8, (max_length, V))
-
-	for v in 1:V
-		code[:, v] = -1
-		for i in 1:length(outputs[v])
-			code[i, v] = outputs[v].code[i]
-			path[i, v] = outputs[v].path[i]
-		end
-	end
-
+function VectorModel(freqs::Array{Int64}, M::Int64, T::Int64=1, alpha::Float64=1e-2,
+	d::Float64=0., huffman_outputs::Vector{HierarchicalOutput}=get_huffman(freqs))
+	V = length(freqs)
+	
 	In = shared_rand((M, T, V), Float32(M))
 	Out = shared_rand((M, V), Float32(M))
 
@@ -109,6 +101,19 @@ function VectorModel(freqs::Array{Int64}, M::Int64, T::Int64=1, alpha::Float64=1
 
 	frequencies = shared_zeros(Int64, (V,))
 	frequencies[:] = freqs
+
+	max_length = maximum(map(x -> length(x.code), huffman_outputs))
+
+	path = shared_zeros(Int32, (max_length, V))
+	code = shared_zeros(Int8, (max_length, V))
+
+	for v in 1:V
+		code[:, v] = -1
+		for i in 1:length(huffman_outputs[v])
+			code[i, v] = huffman_outputs[v].code[i]
+			path[i, v] = huffman_outputs[v].path[i]
+		end
+	end
 
 	return VectorModel(frequencies, code, path, In, Out, alpha, d, counts)
 end
