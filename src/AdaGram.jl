@@ -15,17 +15,14 @@ import ArrayViews.view
 import ArrayViews.Subs
 import Base.vec
 
-type Dictionary
-	word2id::Dict{AbstractString, Tw}
-	id2word::Array{AbstractString}
+immutable Dictionary{S<:AbstractString}
+	word2id::Dict{S, Tw}
+	id2word::Array{S}
+end
 
-	function Dictionary(id2word::Array{AbstractString})
-		word2id = Dict{AbstractString, Int}()
-		for v in 1:length(id2word)
-			setindex!(word2id, v, id2word[v])
-		end
-		return new(word2id, id2word)
-	end
+function Dictionary{S<:AbstractString}(id2word::Array{S})
+	word2id = Dict(word=>id for (ii,word) in enumerate(id2word))
+	Dictionary(word2id, id2word)
 end
 
 type VectorModel
