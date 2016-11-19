@@ -15,6 +15,12 @@ import ArrayViews.view
 import ArrayViews.Subs
 import Base.vec
 
+
+abstract Locality
+immutable Local <: Locality end
+immutable Shared <: Locality end
+
+
 immutable Dictionary{S<:AbstractString}
 	word2id::Dict{S, Tw}
 	id2word::Array{S}
@@ -43,12 +49,14 @@ V(vm::VectorModel) = size(vm.In, 3) #number of words
 view(x::SharedArray, i1::Subs, i2::Subs) = view(sdata(x), i1, i2)
 view(x::SharedArray, i1::Subs, i2::Subs, i3::Subs) = view(sdata(x), i1, i2, i3)
 
+Base.rand{T}(dims::Tuple, norm::T) = (rand(T, dims) .- 0.5) ./ norm
+
 function shared_rand{T}(dims::Tuple, norm::T)
 	S = SharedArray(T, dims; init = S -> begin
 			chunk = localindexes(S)
 			chunk_size = length(chunk)
-			data = rand(chunk_size)
-			@devec data = (data - 0.5) ./ norm
+			data = rand(T, chunk_size) #GOLDPLATE: this can be done inplace
+			@devec data = (data - 0.5) ./ norm 
 			S[chunk] = data
 		end)
 	return S
@@ -63,27 +71,46 @@ function shared_zeros{T}(::Type{T}, dims::Tuple)
 	return S
 end
 
+
+
+
+
 """
  - `V` vocabulary size
  - `M` dimentionality of vectors
  - `T` max number of meanings
 """
-function VectorModel(max_length::Int64, V::Int64, M::Int64, T::Int64=1, alpha::Float64=1e-2, d::Float64=0.)
+function VectorModel(::Type{Shared}, max_length::Int64, V::Int64, M::Int64, T::Int64=1, alpha::Float64=1e-2, d::Float64=0.)
+	In = shared_rand((M, T, V), Float32(M))
+	Out = shared_rand((M, V), Float32(M))
+
+	counts = shared_zeros(Float32, (T, V))
+	frequencies = shared_zeros(Int64, (V,))
+	
 	path = shared_zeros(Int32, (max_length, V))
 	code = shared_zeros(Int8, (max_length, V))
 
 	code[:] = -1
 
-	In =  shared_zeros(Float32, (M, T, V))
-	Out = shared_zeros(Float32, (M, V))
-
-	counts = shared_zeros(Float32, (T, V))
-
-	frequencies = shared_zeros(Int64, (V,))
-
 	return VectorModel(frequencies, code, path, In, Out, alpha, d, counts)
 end
 
+VectorModel(max_length::Int64, V::Int64, M::Int64, T::Int64=1, alpha::Float64=1e-2, d::Float64=0.) = VectorModel(Shared, max_length, V, M, T, alpha, d)
+
+function VectorModel(::Type{Local}, max_length::Int64, V::Int64, M::Int64, T::Int64=1, alpha::Float64=1e-2, d::Float64=0.)
+	In = rand((M, T, V), Float32(M))
+	Out = rand((M, V), Float32(M))
+
+	counts = zeros(Float32, (T, V))
+	frequencies = zeros(Int64, (V,))
+	
+	path = zeros(Int32, (max_length, V))
+	code = zeros(Int8, (max_length, V))
+
+	code[:] = -1
+
+	return VectorModel(frequencies, code, path, In, Out, alpha, d, counts)
+end
 
 function get_huffman(freqs)
 	V=length(freqs)
@@ -92,32 +119,27 @@ function get_huffman(freqs)
 end
 
 
+
 function VectorModel(freqs::Array{Int64}, M::Int64, T::Int64=1, alpha::Float64=1e-2,
-	d::Float64=0., huffman_outputs::Vector{HierarchicalOutput}=get_huffman(freqs))
+	d::Float64=0., huffman_outputs::Vector{HierarchicalOutput}=get_huffman(freqs);	
+	locality=Shared)
 	V = length(freqs)
 	
-	In = shared_rand((M, T, V), Float32(M))
-	Out = shared_rand((M, V), Float32(M))
-
-	counts = shared_zeros(Float32, (T, V))
-
-	frequencies = shared_zeros(Int64, (V,))
-	frequencies[:] = freqs
-
 	max_length = maximum(map(x -> length(x.code), huffman_outputs))
 
-	path = shared_zeros(Int32, (max_length, V))
-	code = shared_zeros(Int8, (max_length, V))
+	vm = VectorModel(locality, max_length, V,M,T,alpha,d)
+	vm.frequencies[:] = freqs
+
 
 	for v in 1:V
-		code[:, v] = -1
+		vm.code[:, v] = -1
 		for i in 1:length(huffman_outputs[v])
-			code[i, v] = huffman_outputs[v].code[i]
-			path[i, v] = huffman_outputs[v].path[i]
+			vm.code[i, v] = huffman_outputs[v].code[i]
+			vm.path[i, v] = huffman_outputs[v].path[i]
 		end
 	end
 
-	return VectorModel(frequencies, code, path, In, Out, alpha, d, counts)
+	return vm 
 end
 
 view(vm::VectorModel, v::Integer, s::Integer) = view(vm.In, :, s, v)
@@ -156,5 +178,8 @@ export disambiguate, write_dictionary
 export likelihood, parallel_likelihood
 export expected_pi!, expected_pi
 export load_model
+
+export Dictionary
+export Local, Shared
 
 end
