@@ -75,7 +75,7 @@ function convert_huffman_tree(nodes::Array{HierarchicalSoftmaxNode}, vocab_len::
 			push!(path, parent_id)
 		end
 
-		outputs[v] = HierarchicalOutput(code, path)
+		outputs[layer_num] = HierarchicalOutput(code, path)
 	end
 
 	return outputs
