@@ -21,7 +21,7 @@ immutable Dictionary{S<:AbstractString}
 end
 
 function Dictionary{S<:AbstractString}(id2word::Array{S})
-	word2id = Dict(word=>id for (ii,word) in enumerate(id2word))
+	word2id = Dict(word=>Tw(id) for (id,word) in enumerate(id2word))
 	Dictionary(word2id, id2word)
 end
 
@@ -62,6 +62,7 @@ function shared_zeros{T}(::Type{T}, dims::Tuple)
 		end)
 	return S
 end
+
 
 function VectorModel(max_length::Int64, V::Int64, M::Int64, T::Int64=1, alpha::Float64=1e-2, d::Float64=0.)
 	path = shared_zeros(Int32, (max_length, V))
