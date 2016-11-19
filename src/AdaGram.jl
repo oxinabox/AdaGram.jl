@@ -63,7 +63,11 @@ function shared_zeros{T}(::Type{T}, dims::Tuple)
 	return S
 end
 
-
+"""
+ - `V` vocabulary size
+ - `M` dimentionality of vectors
+ - `T` max number of meanings
+"""
 function VectorModel(max_length::Int64, V::Int64, M::Int64, T::Int64=1, alpha::Float64=1e-2, d::Float64=0.)
 	path = shared_zeros(Int32, (max_length, V))
 	code = shared_zeros(Int8, (max_length, V))
