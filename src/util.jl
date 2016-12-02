@@ -231,10 +231,18 @@ end
 
 cos_dist(x, y) = 1. - dot(x, y) / norm(x, 2) / norm(y, 2)
 
+
 function disambiguate{Tw <: Integer}(vm::VectorModel, x::Tw,
 		context::AbstractArray{Tw, 1}, use_prior::Bool=true,
 		min_prob::Float64=1e-3)
 	z = zeros(T(vm))
+	disambiguate!(z, vm, x, context, use_prior, min_prob)
+end
+
+
+function disambiguate!{Tw <: Integer}(z, vm::VectorModel, x::Tw,
+		context::AbstractArray{Tw, 1}, use_prior::Bool=true,
+		min_prob::Float64=1e-3)
 
 	if use_prior
 		expected_pi!(z, vm, x)
@@ -250,7 +258,6 @@ function disambiguate{Tw <: Integer}(vm::VectorModel, x::Tw,
 	end
 
 	exp_normalize!(z)
-	
 	return z
 end
 
